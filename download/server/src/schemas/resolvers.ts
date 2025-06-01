@@ -1,6 +1,6 @@
 import User from "../models/User";
 import { signToken } from "../services/auth";
-import AuthenticationError from 'apollo-server-express';
+import GraphQLError from 'graphql';
 
 interface AddUsersArgs {
     input:{
@@ -45,7 +45,11 @@ const resolvers = {
                 const userData = await User.findOne({ _id: currentUser._id }) .select('-__v -password');
                 return userData;
             }
-            throw new AuthenticationError('You need to be logged in!');
+            throw new GraphQLError('You need to be logged in!' , {
+                extensions: {
+                    code: 'UNAUTHENTICATED',
+                },
+            });
         },
     },
     Mutation: {
@@ -57,11 +61,19 @@ const resolvers = {
         login: async (_parent: any, { email, password }: LoginArgs) => {
             const user = await User.findOne({ email });
             if (!user) {
-                throw new AuthenticationError('No user found');
+                throw new GraphQLError('No user found', {
+                    extensions: {
+                        code: 'BAD_USER_INPUT',
+                    },
+                });
             }
             const correctPw = await user.isCorrectPassword(password);
             if (!correctPw) {
-                throw new AuthenticationError('Incorrect entry');
+                throw new GraphQLError('Incorrect entry' , {
+                    extensions: {
+                        code: 'BAD_USER_INPUT'
+                    },
+                });
             }
             const token = signToken(user);
             return { token, user };
@@ -76,7 +88,11 @@ const resolvers = {
                 );
                 return updatedUser;
             }
-            throw new AuthenticationError('Log into your account to save books!');
+            throw new GraphQLError('Log into your account to save books!' , {
+                extensions: {
+                    code: 'UNAUTHENTICATED',
+                },
+            });
         },
         removeBook: async (_parent: any, { bookId }: RemoveBookArgs, context: ResolverContext) => {
             if (context.user) {
@@ -87,7 +103,11 @@ const resolvers = {
                 );
                 return updatedUser;
             }
-            throw new AuthenticationError('Log into your account to remove books!');
+            throw new GraphQLError('Log into your account to remove books!' , {
+                extensions: {
+                    code: 'UNAUTHENTICATED',
+                },
+            });
         },
     },
 };
